@@ -1,7 +1,7 @@
 from math import inf
 
 
-def input_int_limit(lower_limit=0, upper_limit=inf):
+def input_num_limit(lower_limit=0, upper_limit=inf, type_int=True, strong=True):
     """Функция ввода int-значения с проверкой на ограничение снизу и сверху \n
     lower_limit - нижняя граница (не включительно) [int] \n
     upper_limit - верхняя граница (не включительно) [int] \n
@@ -10,12 +10,12 @@ def input_int_limit(lower_limit=0, upper_limit=inf):
 
     while True:
         try:
-            n = int(input())
+            n = int(input()) if type_int else float(input())
         except ValueError:
             print("""Ошибка ввода, неверный тип входного значения.
 >>> """, end="")
             continue
-        if lower_limit < n < upper_limit:
+        if (lower_limit < n < upper_limit and strong) or (lower_limit <= n <= upper_limit and not strong):
             return n
         print(f"""Ошибка ввода, значение не удовлетворяет ограничениям ({lower_limit} < значение < {upper_limit}).
 >>> """, end="")
@@ -63,3 +63,36 @@ def input_probabilities(n):
             except ValueError:
                 print("Ошибка: введите число")
     return probabilities
+
+
+def input_sub_n(count, name='n'):
+    """Ввод многих значений sub_n, проверка на то, что их сумма равна 1"""
+    data = []
+    print(
+        f"""Введите значения {name}1), {name}2), ..., {name}k) такие, что {name}1) + {name}2) + ... + {name}k) = 1, значение P(Hi) = [0..1]
+>>> """, end="")
+    while True:
+        a = input_num_limit(lower_limit=0, upper_limit=1, type_int=False, strong=False)
+        for i in range(count - 1):
+            data.append(a)
+            print(">>> ", end="")
+            a = input_num_limit(lower_limit=0, upper_limit=1, type_int=False, strong=False)
+        data.append(a)
+        if sum(data) == 1:
+            return data
+        else:
+            data = []
+            print(f"""Неверное условие, сумма значений {name}1), {name}2), ..., {name}k) должна равняться 1, попробуйте еще раз.
+>>> """, end="")
+
+
+def input_params(request):
+    """Функция ввода параметров типа решаемой задачи"""
+
+    while True:
+        print(">>> ", end="")
+        param = input()
+
+        if param in request:
+            return param
+        print("Ошибка ввода, неверное значение. Введите одно из предложенных значений.")
