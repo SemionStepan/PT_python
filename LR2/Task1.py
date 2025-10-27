@@ -40,7 +40,7 @@ P(Ai) = 1 - P(Bi)
                 print("Ошибка: введите число")
 
     p1, p2, p3, p4, p5, p6 = probabilities['A1'], probabilities['A2'], probabilities['A3'], probabilities['A4'], \
-    probabilities['A5'], probabilities['A6']
+        probabilities['A5'], probabilities['A6']
 
     P_B = (p1 * p3 * (p2 + p4 * p5 * p6 - p2 * p4 * p5 * p6))
 

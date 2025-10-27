@@ -74,5 +74,6 @@ def main():
     P_B_test = 4*p_test**2 - 6*p_test**3 + 4*p_test**4
     print(f"P(B) = {P_B_test:.6f} (ожидается 0.000000)")
 
+
 if __name__ == "__main__":
     main()

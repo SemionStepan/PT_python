@@ -1,5 +1,3 @@
-from math import inf
-
 from _utils import input_num_limit, input_sub_n, input_params
 
 
