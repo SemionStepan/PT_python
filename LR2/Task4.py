@@ -29,7 +29,7 @@ def main():
         P += Phas[i] * His[i]
     Pahs = []
     for i in range(n):
-        Pahs.append((Phas[i] * P) / His[i])
+        Pahs.append((Phas[i] * His[i]) / sum([Phas[j] * P for j in range(n)]))
 
     if form == '1':
         print(f"""Выбрана формула полной вероятности: P(A) = ∑ ([i от 1 до n] | P(A | Hi) ⋅ P(Hi))
