@@ -276,8 +276,8 @@ class StatisticsAnalyzer:
 
         # Добавляем точки разрыва
         for i in range(1, len(x_points) - 1, 2):
-            ax.plot(x_points[i], y_points[i], 'ro', markersize=8, fillstyle='none')
-            ax.plot(x_points[i], y_points[i + 1], 'go', markersize=8)
+            ax.plot(x_points[i], y_points[i], 'go', markersize=8)
+            ax.plot(x_points[i], y_points[i + 1], 'ro', markersize=8, fillstyle='none')
 
         plt.tight_layout()
 
