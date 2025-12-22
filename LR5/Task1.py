@@ -146,6 +146,8 @@ class StatisticsAnalyzer:
 
     def show_variation_series(self):
         """Показать вариационный ряд"""
+        self.setup_ui()
+
         if self.data is None:
             messagebox.showwarning("Предупреждение", "Сначала загрузите данные")
             return
@@ -172,11 +174,12 @@ class StatisticsAnalyzer:
         if self.data is None:
             messagebox.showwarning("Предупреждение", "Сначала загрузите данные")
             return
-
         text = "СТАТИСТИЧЕСКИЕ РЯДЫ\n"
         text += "=" * 70 + "\n"
         text += f"{'Варианта (x_i)':<15} {'Частота (n_i)':<15} {'Отн. частота (w_i)':<20}\n"
         text += "-" * 70 + "\n"
+
+        self.setup_ui()
 
         for x in self.frequency_dict:
             freq = self.frequency_dict[x]
@@ -312,6 +315,9 @@ class StatisticsAnalyzer:
 
     def show_numerical_characteristics(self):
         """Вычислить числовые характеристики выборки"""
+
+        self.setup_ui()
+
         if self.data is None:
             messagebox.showwarning("Предупреждение", "Сначала загрузите данные")
             return
