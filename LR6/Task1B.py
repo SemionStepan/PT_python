@@ -150,7 +150,7 @@ class PearsonChiSquareTest:
         """Диалоговое окно для ручного ввода интервального ряда"""
         dialog = tk.Toplevel(self.root)
         dialog.title("Ручной ввод интервального ряда")
-        dialog.geometry("600x500")
+        dialog.geometry("600x800")
         dialog.transient(self.root)
         dialog.grab_set()
 
@@ -180,11 +180,11 @@ class PearsonChiSquareTest:
         input_text = scrolledtext.ScrolledText(text_frame, height=15, font=("Courier", 10))
         input_text.pack(fill=tk.BOTH, expand=True)
 
-        example_data = """[10;15) 8
-[15;20) 12
-[20;25) 15
-[25;30) 10
-[30;35] 5"""
+        example_data = """[1.2;1.6) 7
+[1.6;2.0) 20
+[2.0;2.4) 48
+[2.4;2.8) 19
+[2.8;3.2] 6"""
         input_text.insert(1.0, example_data)
 
         def process_input():
