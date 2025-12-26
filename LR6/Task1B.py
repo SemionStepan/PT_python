@@ -33,7 +33,8 @@ class PearsonChiSquareTest:
 
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Файл", menu=file_menu)
-        file_menu.add_command(label="Загрузить данные из файла", command=self.load_data)
+        file_menu.add_command(label="Загрузить исходные данные", command=self.load_data)
+        file_menu.add_command(label="Загрузить интервальный ряд из файла", command=self.load_interval_series_from_file)
         file_menu.add_command(label="Ручной ввод интервального ряда", command=self.manual_input_dialog)
         file_menu.add_separator()
         file_menu.add_command(label="Сохранить отчет", command=self.save_report)
@@ -66,25 +67,28 @@ class PearsonChiSquareTest:
         self.data_info = ttk.Label(control_frame, text="Не загружены", foreground="red")
         self.data_info.grid(row=1, column=1, sticky=tk.W, pady=(0, 5))
 
-        ttk.Button(control_frame, text="Загрузить из файла",
+        ttk.Button(control_frame, text="Загрузить исходные данные",
                    command=self.load_data).grid(row=2, column=0, columnspan=2, pady=(0, 5))
 
+        ttk.Button(control_frame, text="Загрузить интерв. ряд из файла",
+                   command=self.load_interval_series_from_file).grid(row=3, column=0, columnspan=2, pady=(0, 5))
+
         ttk.Button(control_frame, text="Ручной ввод",
-                   command=self.manual_input_dialog).grid(row=3, column=0, columnspan=2, pady=(0, 10))
+                   command=self.manual_input_dialog).grid(row=4, column=0, columnspan=2, pady=(0, 10))
 
         # Количество интервалов (только для автоматического режима)
-        ttk.Label(control_frame, text="Кол-во интервалов (авто):").grid(row=4, column=0, sticky=tk.W, pady=5)
+        ttk.Label(control_frame, text="Кол-во интервалов (авто):").grid(row=5, column=0, sticky=tk.W, pady=5)
         self.interval_var = tk.StringVar(value="7")
         self.interval_spin = ttk.Spinbox(control_frame, from_=3, to=20,
                                          textvariable=self.interval_var, width=10, state='normal')
-        self.interval_spin.grid(row=4, column=1, pady=5)
+        self.interval_spin.grid(row=5, column=1, pady=5)
 
         # Уровень значимости
-        ttk.Label(control_frame, text="Уровень значимости α:").grid(row=5, column=0, sticky=tk.W, pady=5)
+        ttk.Label(control_frame, text="Уровень значимости α:").grid(row=6, column=0, sticky=tk.W, pady=5)
         self.alpha_var = tk.StringVar(value="0.05")
         alpha_combo = ttk.Combobox(control_frame, textvariable=self.alpha_var,
                                    values=["0.01", "0.05", "0.10"], width=8)
-        alpha_combo.grid(row=5, column=1, pady=5)
+        alpha_combo.grid(row=6, column=1, pady=5)
 
         # Кнопки анализа
         analysis_frame = ttk.LabelFrame(left_frame, text="Анализ", padding="10")
@@ -136,21 +140,43 @@ class PearsonChiSquareTest:
 
         # Вкладка для таблицы данных
         self.table_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.table_frame, text="Данные")
+        self.notebook.add(self.table_frame, text="Исходные данные")
 
         # Вкладка для ручного ввода
         self.manual_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.manual_frame, text="Ручной ввод")
+        self.notebook.add(self.manual_frame, text="Интервальный ряд")
 
         # Нижняя часть - графики
         self.graph_frame = ttk.LabelFrame(right_frame, text="Графики", padding="10")
         self.graph_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
+    def load_interval_series_from_file(self):
+        """Загрузка интервального ряда из файла"""
+        file_path = filedialog.askopenfilename(
+            filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+            title="Выберите файл с интервальным рядом"
+        )
+
+        if not file_path:
+            return
+
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                text = f.read()
+
+            success = self.parse_manual_input(text)
+            if success:
+                self.show_manual_input_table()
+                messagebox.showinfo("Успех", f"Интервальный ряд успешно загружен из файла:\n{file_path}")
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка загрузки файла:\n{str(e)}")
+
     def manual_input_dialog(self):
         """Диалоговое окно для ручного ввода интервального ряда"""
         dialog = tk.Toplevel(self.root)
         dialog.title("Ручной ввод интервального ряда")
-        dialog.geometry("600x800")
+        dialog.geometry("600x500")
         dialog.transient(self.root)
         dialog.grab_set()
 
@@ -180,11 +206,11 @@ class PearsonChiSquareTest:
         input_text = scrolledtext.ScrolledText(text_frame, height=15, font=("Courier", 10))
         input_text.pack(fill=tk.BOTH, expand=True)
 
-        example_data = """[1.2;1.6) 7
-[1.6;2.0) 20
-[2.0;2.4) 48
-[2.4;2.8) 19
-[2.8;3.2] 6"""
+        example_data = """[10;15) 8
+[15;20) 12
+[20;25) 15
+[25;30) 10
+[30;35] 5"""
         input_text.insert(1.0, example_data)
 
         def process_input():
@@ -308,14 +334,18 @@ class PearsonChiSquareTest:
             self.data = np.array(self.data)
 
             # Обновляем информацию
-            self.mode_label.config(text="Режим: ручной ввод", foreground="green")
-            self.data_info.config(text=f"n={total} (ручной)", foreground="green")
+            self.mode_label.config(text="Режим: интервальный ряд (из файла)", foreground="green")
+            self.data_info.config(text=f"n={total} (интервальный ряд)", foreground="green")
             self.interval_spin.config(state='disabled')
 
-            self.display_result(f"Ручной ввод успешно обработан!\n"
+            self.display_result(f"Интервальный ряд успешно загружен!\n"
+                                f"Источник: {'файл' if hasattr(self, 'loaded_from_file') else 'ручной ввод'}\n"
                                 f"Количество интервалов: {self.n_intervals}\n"
                                 f"Общая частота: n = {total}\n"
                                 f"Диапазон: [{min(self.interval_bounds):.2f}, {max(self.interval_bounds):.2f}]")
+
+            # Флаг для отслеживания источника данных
+            self.loaded_from_file = True
 
             return True
 
@@ -386,10 +416,11 @@ class PearsonChiSquareTest:
         self.notebook.select(2)
 
     def load_data(self):
-        """Загрузка данных из файла (автоматический режим)"""
+        """Загрузка исходных данных из файла (автоматический режим)"""
         file_path = filedialog.askopenfilename(
             filetypes=[("Text files", "*.txt"), ("CSV files", "*.csv"),
-                       ("Excel files", "*.xlsx"), ("All files", "*.*")]
+                       ("Excel files", "*.xlsx"), ("All files", "*.*")],
+            title="Выберите файл с исходными данными"
         )
 
         if not file_path:
@@ -421,11 +452,11 @@ class PearsonChiSquareTest:
             self.manual_mode = False
             self.manual_intervals = []
             self.interval_spin.config(state='normal')
-            self.mode_label.config(text="Режим: автоматический", foreground="blue")
+            self.mode_label.config(text="Режим: автоматический (исходные данные)", foreground="blue")
 
             self.data_info.config(text=f"n={len(self.data)}", foreground="green")
             self.show_data_table()
-            self.display_result(f"Данные успешно загружены из файла!\n"
+            self.display_result(f"Исходные данные успешно загружены из файла!\n"
                                 f"Режим: автоматический\n"
                                 f"Объем выборки: n = {len(self.data)}\n"
                                 f"Диапазон: [{min(self.data):.4f}, {max(self.data):.4f}]\n"
@@ -522,9 +553,12 @@ class PearsonChiSquareTest:
         self.text_output.delete(1.0, tk.END)
 
         if self.manual_mode:
-            mode_info = "РЕЖИМ: РУЧНОЙ ВВОД ИНТЕРВАЛЬНОГО РЯДА\n" + "=" * 60 + "\n\n"
+            if hasattr(self, 'loaded_from_file'):
+                mode_info = "РЕЖИМ: ИНТЕРВАЛЬНЫЙ РЯД (ИЗ ФАЙЛА)\n" + "=" * 60 + "\n\n"
+            else:
+                mode_info = "РЕЖИМ: ИНТЕРВАЛЬНЫЙ РЯД (РУЧНОЙ ВВОД)\n" + "=" * 60 + "\n\n"
         else:
-            mode_info = "РЕЖИМ: АВТОМАТИЧЕСКИЙ (ИЗ ФАЙЛА)\n" + "=" * 60 + "\n\n"
+            mode_info = "РЕЖИМ: АВТОМАТИЧЕСКИЙ (ИСХОДНЫЕ ДАННЫЕ)\n" + "=" * 60 + "\n\n"
 
         self.text_output.insert(tk.END, mode_info + text)
         self.notebook.select(0)
@@ -550,12 +584,16 @@ class PearsonChiSquareTest:
             total = sum(self.interval_freq)
             data_min = min([interval['left'] for interval in self.manual_intervals])
             data_max = max([interval['right'] for interval in self.manual_intervals])
-            text += f"Объем выборки: n = {total} (из интервального ряда)\n"
+            if hasattr(self, 'loaded_from_file'):
+                source = " (загружен из файла)"
+            else:
+                source = " (ручной ввод)"
+            text += f"Объем выборки: n = {total}{source}\n"
         else:
             total = len(self.data)
             data_min = np.min(self.data)
             data_max = np.max(self.data)
-            text += f"Объем выборки: n = {total}\n"
+            text += f"Объем выборки: n = {total} (исходные данные)\n"
 
         text += f"Минимальное значение: {data_min:.6f}\n"
         text += f"Максимальное значение: {data_max:.6f}\n"
@@ -927,7 +965,6 @@ class PearsonChiSquareTest:
 
     def get_chi2_critical(self, df, alpha):
         """Получение критического значения χ²"""
-        # Таблица критических значений χ²
         chi2_table = {
             0.01: {1: 6.63, 2: 9.21, 3: 11.34, 4: 13.28, 5: 15.09,
                    6: 16.81, 7: 18.48, 8: 20.09, 9: 21.67, 10: 23.21,
@@ -944,8 +981,7 @@ class PearsonChiSquareTest:
         if alpha_key in chi2_table and df in chi2_table[alpha_key]:
             return chi2_table[alpha_key][df]
         elif df > 15:
-            # Аппроксимация для больших степеней свободы
-            return df + np.sqrt(2 * df) * 2.33  # Для α=0.01
+            return df + np.sqrt(2 * df) * 2.33
         else:
             return 2 * df
 
@@ -976,8 +1012,6 @@ class PearsonChiSquareTest:
 
         text += f"Уровень значимости: α = {alpha}\n\n"
 
-        # Число степеней свободы: r = k - 1 - m
-        # где m = 2 (оцененные параметры: a* и σ*)
         r = self.n_intervals - 1 - 2
 
         text += "Формула для числа степеней свободы:\n"
@@ -987,7 +1021,6 @@ class PearsonChiSquareTest:
         text += "m = число оцененных параметров = 2 (a* и σ* для нормального распределения)\n"
         text += f"r = {self.n_intervals} - 1 - 2 = {r}\n\n"
 
-        # 10. Критическое значение χ²
         chi2_critical = self.get_chi2_critical(r, alpha)
 
         text += "10. КРИТИЧЕСКОЕ ЗНАЧЕНИЕ χ²:\n"
@@ -998,7 +1031,6 @@ class PearsonChiSquareTest:
         text += f"{'α\\r':<10} {'0.10':<10} {'0.05':<10} {'0.01':<10}\n"
         text += "-" * 60 + "\n"
 
-        # Показываем значения для различных α и r
         r_values = list(range(max(1, r - 2), min(16, r + 3)))
         for r_val in r_values:
             line = f"r={r_val:<6}"
@@ -1011,7 +1043,6 @@ class PearsonChiSquareTest:
         text += f"Для нашего случая (α={alpha}, r={r}):\n"
         text += f"χ² критическое = {chi2_critical:.4f}\n\n"
 
-        # 11. Сравнение и вывод результата
         text += "11. СРАВНЕНИЕ И РЕЗУЛЬТАТ ПРОВЕРКИ:\n"
         text += "-" * 60 + "\n\n"
 
@@ -1034,7 +1065,6 @@ class PearsonChiSquareTest:
         text += f"\nУровень значимости: α = {alpha}\n"
         text += f"Вероятность ошибки первого рода: {alpha * 100}%\n"
 
-        # Строим график распределения χ²
         self.plot_chi2_distribution(r, alpha, self.chi2_observed, chi2_critical, result, result_color)
 
         self.display_result(text)
@@ -1046,11 +1076,9 @@ class PearsonChiSquareTest:
 
         fig, ax = plt.subplots(figsize=(10, 6))
 
-        # Плотность χ²-распределения
         x_max = max(chi2_crit * 1.5, chi2_obs * 1.2, 3 * df)
         x = np.linspace(0.001, x_max, 1000)
 
-        # Плотность χ²
         def chi2_pdf(x, df):
             return (x ** (df / 2 - 1) * np.exp(-x / 2)) / (2 ** (df / 2) * math.gamma(df / 2))
 
@@ -1058,13 +1086,11 @@ class PearsonChiSquareTest:
 
         ax.plot(x, y, 'b-', linewidth=2, label=f'χ²-распределение (df={df})')
 
-        # Критическая область
         x_crit = np.linspace(chi2_crit, x_max, 100)
         y_crit = chi2_pdf(x_crit, df)
         ax.fill_between(x_crit, 0, y_crit, alpha=0.3, color='red',
                         label=f'Критическая область (α={alpha})')
 
-        # Линии для наблюдаемого и критического значений
         ax.axvline(x=chi2_crit, color='r', linestyle='--', linewidth=2,
                    label=f'χ² критическое = {chi2_crit:.3f}')
         ax.axvline(x=chi2_obs, color=result_color, linestyle='--', linewidth=2,
@@ -1101,9 +1127,12 @@ class PearsonChiSquareTest:
         summary += "=" * 80 + "\n\n"
 
         if self.manual_mode:
-            summary += "Режим: РУЧНОЙ ВВОД ИНТЕРВАЛЬНОГО РЯДА\n\n"
+            if hasattr(self, 'loaded_from_file'):
+                summary += "Режим: ИНТЕРВАЛЬНЫЙ РЯД (ЗАГРУЖЕН ИЗ ФАЙЛА)\n\n"
+            else:
+                summary += "Режим: ИНТЕРВАЛЬНЫЙ РЯД (РУЧНОЙ ВВОД)\n\n"
         else:
-            summary += "Режим: АВТОМАТИЧЕСКИЙ (ИЗ ФАЙЛА)\n\n"
+            summary += "Режим: АВТОМАТИЧЕСКИЙ (ИСХОДНЫЕ ДАННЫЕ)\n\n"
 
         summary += "Выполнены все 11 пунктов задания:\n"
         for i in range(1, 12):
@@ -1121,6 +1150,9 @@ class PearsonChiSquareTest:
         self.interval_bounds = None
         self.manual_mode = False
         self.manual_intervals = []
+
+        if hasattr(self, 'loaded_from_file'):
+            delattr(self, 'loaded_from_file')
 
         self.mode_label.config(text="Режим: ожидание данных", foreground="blue")
         self.data_info.config(text="Не загружены", foreground="red")
@@ -1162,17 +1194,19 @@ class PearsonChiSquareTest:
                 f.write(f"Дата анализа: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
                 if self.manual_mode:
-                    f.write("Режим: РУЧНОЙ ВВОД ИНТЕРВАЛЬНОГО РЯДА\n")
+                    if hasattr(self, 'loaded_from_file'):
+                        f.write("Режим: ИНТЕРВАЛЬНЫЙ РЯД (ЗАГРУЖЕН ИЗ ФАЙЛА)\n")
+                    else:
+                        f.write("Режим: ИНТЕРВАЛЬНЫЙ РЯД (РУЧНОЙ ВВОД)\n")
                     total = sum(self.interval_freq)
                     f.write(f"Объем выборки: n = {total}\n")
                 else:
-                    f.write("Режим: АВТОМАТИЧЕСКИЙ\n")
+                    f.write("Режим: АВТОМАТИЧЕСКИЙ (ИСХОДНЫЕ ДАННЫЕ)\n")
                     f.write(f"Объем выборки: n = {len(self.data)}\n")
                     f.write(f"Количество интервалов: k = {self.interval_var.get()}\n")
 
                 f.write(f"Уровень значимости: α = {self.alpha_var.get()}\n\n")
 
-                # Основные результаты
                 f.write("РЕЗУЛЬТАТЫ:\n")
                 f.write("-" * 40 + "\n")
 

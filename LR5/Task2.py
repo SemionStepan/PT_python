@@ -313,41 +313,105 @@ class IntervalStatisticsAnalyzer:
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
 
-        # Ширина столбцов
-        widths = [self.interval_bounds[i + 1] - self.interval_bounds[i]
-                  for i in range(self.n_intervals)]
+        # Гистограмма частот (без промежутков между столбцами)
+        for i in range(self.n_intervals):
+            left = self.interval_bounds[i]
+            right = self.interval_bounds[i + 1]
+            width = right - left
+            ax1.bar(left, self.interval_freq[i],
+                    width=width,
+                    align='edge',
+                    edgecolor='black',
+                    alpha=0.7,
+                    color='skyblue')
 
-        # Гистограмма частот
-        bars1 = ax1.bar(self.midpoints, self.interval_freq,
-                        width=[w * 0.8 for w in widths],
-                        edgecolor='black', alpha=0.7, color='skyblue')
         ax1.set_xlabel('Интервалы', fontsize=12)
         ax1.set_ylabel('Частота (n_i)', fontsize=12)
         ax1.set_title('Гистограмма частот', fontsize=14, fontweight='bold')
         ax1.grid(True, alpha=0.3, linestyle='--')
 
+        # Убираем стандартные подписи по оси X
+        ax1.set_xticks([])
+
+        # Добавляем подписи границ интервалов красным цветом
+        for i in range(len(self.interval_bounds)):
+            ax1.text(
+                self.interval_bounds[i],
+                -0.03 * max(self.interval_freq) if max(self.interval_freq) > 0 else -0.03,
+                f'{self.interval_bounds[i]:.2f}',
+                ha='center',
+                va='top',
+                fontsize=9,
+                color='darkred',
+                fontweight='bold'
+            )
+
         # Добавляем значения на столбцы
-        for bar in bars1:
-            height = bar.get_height()
-            if height > 0:
-                ax1.text(bar.get_x() + bar.get_width() / 2., height,
-                         f'{int(height)}', ha='center', va='bottom')
+        for i in range(self.n_intervals):
+            if self.interval_freq[i] > 0:
+                left = self.interval_bounds[i]
+                right = self.interval_bounds[i + 1]
+                x_center = (left + right) / 2
+                height = self.interval_freq[i]
+                ax1.text(x_center, height,
+                         f'{int(height)}', ha='center', va='bottom', fontsize=10, fontweight='bold')
 
         # Гистограмма относительных частот
-        bars2 = ax2.bar(self.midpoints, self.interval_rel_freq,
-                        width=[w * 0.8 for w in widths],
-                        edgecolor='black', alpha=0.7, color='lightcoral')
+        for i in range(self.n_intervals):
+            left = self.interval_bounds[i]
+            right = self.interval_bounds[i + 1]
+            width = right - left
+            ax2.bar(left, self.interval_rel_freq[i],
+                    width=width,
+                    align='edge',
+                    edgecolor='black',
+                    alpha=0.7,
+                    color='lightcoral')
+
         ax2.set_xlabel('Интервалы', fontsize=12)
         ax2.set_ylabel('Относительная частота (w_i)', fontsize=12)
         ax2.set_title('Гистограмма относительных частот', fontsize=14, fontweight='bold')
         ax2.grid(True, alpha=0.3, linestyle='--')
 
+        # Убираем стандартные подписи по оси X
+        ax2.set_xticks([])
+
+        # Добавляем подписи границ интервалов красным цветом
+        for i in range(len(self.interval_bounds)):
+            ax2.text(
+                self.interval_bounds[i],
+                -0.03 * max(self.interval_rel_freq) if max(self.interval_rel_freq) > 0 else -0.03,
+                f'{self.interval_bounds[i]:.2f}',
+                ha='center',
+                va='top',
+                fontsize=9,
+                color='darkred',
+                fontweight='bold'
+            )
+
         # Добавляем значения на столбцы
-        for bar in bars2:
-            height = bar.get_height()
-            if height > 0:
-                ax2.text(bar.get_x() + bar.get_width() / 2., height,
-                         f'{height:.3f}', ha='center', va='bottom')
+        for i in range(self.n_intervals):
+            if self.interval_rel_freq[i] > 0:
+                left = self.interval_bounds[i]
+                right = self.interval_bounds[i + 1]
+                x_center = (left + right) / 2
+                height = self.interval_rel_freq[i]
+                ax2.text(x_center, height,
+                         f'{height:.3f}', ha='center', va='bottom', fontsize=10, fontweight='bold')
+
+        # Устанавливаем пределы по оси X
+        x_min = self.interval_bounds[0]
+        x_max = self.interval_bounds[-1]
+
+        ax1.set_xlim([x_min, x_max])
+        ax2.set_xlim([x_min, x_max])
+
+        # Добавляем немного места снизу для подписей границ
+        y_max1 = max(self.interval_freq) * 1.1 if max(self.interval_freq) > 0 else 1
+        y_max2 = max(self.interval_rel_freq) * 1.1 if max(self.interval_rel_freq) > 0 else 0.01
+
+        ax1.set_ylim([0, y_max1])
+        ax2.set_ylim([0, y_max2])
 
         plt.tight_layout()
 
@@ -362,8 +426,20 @@ class IntervalStatisticsAnalyzer:
         desc += "Гистограмма - ступенчатая фигура, состоящая из прямоугольников.\n"
         desc += "Основания прямоугольников - интервалы значений.\n"
         desc += "Высоты прямоугольников - частоты или относительные частоты.\n"
-        desc += f"Площадь гистограммы частот: {sum(self.interval_freq)}\n"
-        desc += f"Площадь гистограммы отн. частот: {sum(self.interval_rel_freq):.4f}"
+        desc += "Столбцы расположены вплотную друг к другу без промежутков.\n\n"
+
+        desc += "ГРАНИЦЫ ИНТЕРВАЛОВ:\n"
+        for i in range(self.n_intervals):
+            left = self.interval_bounds[i]
+            right = self.interval_bounds[i + 1]
+            width = right - left
+            freq = self.interval_freq[i]
+            rel_freq = self.interval_rel_freq[i]
+            desc += f"Интервал {i + 1}: [{left:.4f}, {right:.4f}) ширина={width:.4f}, n={freq}, w={rel_freq:.4f}\n"
+
+        desc += f"\nСумма частот: {sum(self.interval_freq)}\n"
+        desc += f"Сумма отн. частот: {sum(self.interval_rel_freq):.4f}"
+        desc += f"\nОбщее количество данных: {len(self.data)}"
 
         self.display_result(desc)
 
@@ -413,7 +489,7 @@ class IntervalStatisticsAnalyzer:
 
         # Полигон частот
         ax1.plot(self.midpoints, self.interval_freq, 'bo-', linewidth=2, markersize=8)
-        ax1.fill_between(self.midpoints, self.interval_freq, alpha=0.3, color='blue')
+        # ax1.fill_between(self.midpoints, self.interval_freq, alpha=0.3, color='blue')
         ax1.set_xlabel('Середины интервалов (x_i)', fontsize=12)
         ax1.set_ylabel('Частота (n_i)', fontsize=12)
         ax1.set_title('Полигон частот (группированный ряд)', fontsize=14, fontweight='bold')
@@ -425,7 +501,7 @@ class IntervalStatisticsAnalyzer:
 
         # Полигон относительных частот
         ax2.plot(self.midpoints, self.interval_rel_freq, 'ro-', linewidth=2, markersize=8)
-        ax2.fill_between(self.midpoints, self.interval_rel_freq, alpha=0.3, color='red')
+        # ax2.fill_between(self.midpoints, self.interval_rel_freq, alpha=0.3, color='red')
         ax2.set_xlabel('Середины интервалов (x_i)', fontsize=12)
         ax2.set_ylabel('Относительная частота (w_i)', fontsize=12)
         ax2.set_title('Полигон относительных частот (группированный ряд)', fontsize=14, fontweight='bold')
@@ -472,54 +548,99 @@ class IntervalStatisticsAnalyzer:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
 
         # Для интервального ряда
-        x_points_int = []
-        y_points_int = []
+        if hasattr(self, 'interval_bounds') and hasattr(self, 'interval_rel_freq'):
+            # Определяем границы
+            left_bound = self.interval_bounds[0] - (self.interval_bounds[1] - self.interval_bounds[0]) * 0.2
+            right_bound = self.interval_bounds[-1] + (self.interval_bounds[1] - self.interval_bounds[0]) * 0.2
 
-        cum_prob = 0
-        x_points_int.append(self.interval_bounds[0] - 1)
-        y_points_int.append(0)
+            # Рисуем продолжение первой линии влево
+            ax1.hlines(y=0, xmin=left_bound, xmax=self.interval_bounds[0],
+                       linewidth=2, color='purple', linestyle='-')
 
-        for i in range(self.n_intervals):
-            x_points_int.append(self.interval_bounds[i])
-            y_points_int.append(cum_prob)
-            cum_prob += self.interval_rel_freq[i]
-            x_points_int.append(self.interval_bounds[i + 1])
-            y_points_int.append(cum_prob)
+            # Рисуем горизонтальные линии для каждого интервала
+            cum_prob = 0
+            for i in range(self.n_intervals):
+                x_start = self.interval_bounds[i]
+                x_end = self.interval_bounds[i + 1]
+                y_level = cum_prob
+
+                # Рисуем горизонтальную линию
+                ax1.hlines(y=y_level, xmin=x_start, xmax=x_end,
+                           linewidth=2, color='purple')
+
+                # Добавляем точки разрыва
+                if i > 0:
+                    ax1.plot(x_start, y_level, 'ro', markersize=8,
+                             fillstyle='none', markeredgewidth=2)
+
+                cum_prob += self.interval_rel_freq[i]
+
+            # Рисуем продолжение последней линии вправо
+            ax1.hlines(y=1, xmin=self.interval_bounds[-1], xmax=right_bound,
+                       linewidth=2, color='purple', linestyle='-')
+            ax1.plot(self.interval_bounds[-1], 1, 'ro', markersize=8,
+                     fillstyle='none', markeredgewidth=2)
+
+            ax1.set_xlabel('x', fontsize=12)
+            ax1.set_ylabel('F*(x)', fontsize=12)
+            ax1.set_title('Эмпирическая функция (интервальный ряд)', fontsize=14, fontweight='bold')
+            ax1.grid(True, alpha=0.3)
+            ax1.set_ylim(-0.05, 1.05)
+            ax1.set_xlim(left_bound, right_bound)
 
         # Для группированного ряда (используем середины интервалов)
-        x_points_group = []
-        y_points_group = []
+        if hasattr(self, 'midpoints') and hasattr(self, 'interval_rel_freq'):
+            # Вычисляем середины интервалов и границы между ними
+            midpoints = self.midpoints
+            interval_width = self.interval_bounds[1] - self.interval_bounds[0]
 
-        cum_prob = 0
-        x_points_group.append(self.midpoints[0] - (self.interval_bounds[1] - self.interval_bounds[0]))
-        y_points_group.append(0)
+            # Определяем границы для группированного ряда
+            left_bound_g = midpoints[0] - interval_width
+            right_bound_g = midpoints[-1] + interval_width
 
-        for i in range(self.n_intervals):
-            x_points_group.append(self.midpoints[i])
-            y_points_group.append(cum_prob)
-            cum_prob += self.interval_rel_freq[i]
-            if i < self.n_intervals - 1:
-                next_x = (self.midpoints[i] + self.midpoints[i + 1]) / 2
-            else:
-                next_x = self.midpoints[i] + (self.interval_bounds[1] - self.interval_bounds[0])
-            x_points_group.append(next_x)
-            y_points_group.append(cum_prob)
+            # Рисуем продолжение первой линии влево
+            ax2.hlines(y=0, xmin=left_bound_g, xmax=midpoints[0] - interval_width / 2,
+                       linewidth=2, color='green', linestyle='-')
 
-        # График для интервального ряда
-        ax1.step(x_points_int, y_points_int, where='post', linewidth=2, color='purple')
-        ax1.set_xlabel('x', fontsize=12)
-        ax1.set_ylabel('F*(x)', fontsize=12)
-        ax1.set_title('Эмпирическая функция (интервальный ряд)', fontsize=14, fontweight='bold')
-        ax1.grid(True, alpha=0.3)
-        ax1.set_ylim(-0.05, 1.05)
+            # Рисуем горизонтальные линии
+            cum_prob = 0
+            for i in range(self.n_intervals):
+                # Определяем границы сегмента
+                if i == 0:
+                    x_start = midpoints[0] - interval_width / 2
+                else:
+                    x_start = (midpoints[i - 1] + midpoints[i]) / 2
 
-        # График для группированного ряда
-        ax2.step(x_points_group, y_points_group, where='post', linewidth=2, color='green')
-        ax2.set_xlabel('x', fontsize=12)
-        ax2.set_ylabel('F*(x)', fontsize=12)
-        ax2.set_title('Эмпирическая функция (группированный ряд)', fontsize=14, fontweight='bold')
-        ax2.grid(True, alpha=0.3)
-        ax2.set_ylim(-0.05, 1.05)
+                if i < self.n_intervals - 1:
+                    x_end = (midpoints[i] + midpoints[i + 1]) / 2
+                else:
+                    x_end = midpoints[i] + interval_width / 2
+
+                y_level = cum_prob
+
+                # Рисуем горизонтальную линию
+                ax2.hlines(y=y_level, xmin=x_start, xmax=x_end,
+                           linewidth=2, color='green')
+
+                # Добавляем точки разрыва
+                if i > 0:
+                    ax2.plot(x_start, y_level, 'ro', markersize=8,
+                             fillstyle='none', markeredgewidth=2)
+
+                cum_prob += self.interval_rel_freq[i]
+
+            # Рисуем продолжение последней линии вправо
+            ax2.hlines(y=1, xmin=midpoints[-1] + interval_width / 2, xmax=right_bound_g,
+                       linewidth=2, color='green', linestyle='-')
+            ax2.plot(midpoints[-1] + interval_width / 2, 1, 'ro', markersize=8,
+                     fillstyle='none', markeredgewidth=2)
+
+            ax2.set_xlabel('x', fontsize=12)
+            ax2.set_ylabel('F*(x)', fontsize=12)
+            ax2.set_title('Эмпирическая функция (группированный ряд)', fontsize=14, fontweight='bold')
+            ax2.grid(True, alpha=0.3)
+            ax2.set_ylim(-0.05, 1.05)
+            ax2.set_xlim(left_bound_g, right_bound_g)
 
         plt.tight_layout()
 
@@ -547,14 +668,17 @@ class IntervalStatisticsAnalyzer:
         text += "Для группированного ряда (по серединам интервалов):\n"
         text += "F*(x) = {\n"
         cum_prob = 0
+        interval_width = self.interval_bounds[1] - self.interval_bounds[0]
+
         for i in range(self.n_intervals):
             if i == 0:
-                left_bound = self.midpoints[i] - (self.interval_bounds[1] - self.interval_bounds[0]) / 2
+                left_bound = self.midpoints[i] - interval_width / 2
                 text += f"    0, при x ≤ {left_bound:.4f}\n"
 
-            right_bound = self.midpoints[i] + (self.interval_bounds[1] - self.interval_bounds[0]) / 2
             if i < self.n_intervals - 1:
                 right_bound = (self.midpoints[i] + self.midpoints[i + 1]) / 2
+            else:
+                right_bound = self.midpoints[i] + interval_width / 2
 
             text += f"    {cum_prob:.4f}, при x ≤ {right_bound:.4f}\n"
             cum_prob += self.interval_rel_freq[i]

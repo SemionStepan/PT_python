@@ -209,7 +209,7 @@ class StatisticsAnalyzer:
         y_freq = list(self.frequency_dict.values())
 
         ax1.plot(x_values, y_freq, 'bo-', linewidth=2, markersize=6)
-        ax1.fill_between(x_values, y_freq, alpha=0.3)
+        # ax1.fill_between(x_values, y_freq, alpha=0.3)
         ax1.set_xlabel('Значения вариант (x_i)', fontsize=12)
         ax1.set_ylabel('Частота (n_i)', fontsize=12)
         ax1.set_title('Полигон частот', fontsize=14, fontweight='bold')
@@ -219,7 +219,7 @@ class StatisticsAnalyzer:
         y_rel_freq = list(self.relative_freq_dict.values())
 
         ax2.plot(x_values, y_rel_freq, 'ro-', linewidth=2, markersize=6)
-        ax2.fill_between(x_values, y_rel_freq, alpha=0.3, color='red')
+        # ax2.fill_between(x_values, y_rel_freq, alpha=0.3, color='red')
         ax2.set_xlabel('Значения вариант (x_i)', fontsize=12)
         ax2.set_ylabel('Относительная частота (w_i)', fontsize=12)
         ax2.set_title('Полигон относительных частот', fontsize=14, fontweight='bold')
@@ -253,34 +253,98 @@ class StatisticsAnalyzer:
 
         # Создаем эмпирическую функцию распределения
         sorted_values = sorted(self.relative_freq_dict.items())
-        x_points = []
-        y_points = []
 
+        if not sorted_values:
+            messagebox.showwarning("Предупреждение", "Нет данных для построения")
+            return
+
+        # Собираем значения x и вероятности
+        x_values = [x for x, w in sorted_values]
+        probabilities = [w for x, w in sorted_values]
+
+        print("X значения:", x_values)
+        print("Вероятности:", probabilities)
+
+        # Вычисляем накопительные вероятности
         cum_prob = 0
-        for x, w in sorted_values:
-            x_points.append(x)
-            y_points.append(cum_prob)
-            cum_prob += w
-            x_points.append(x)
-            y_points.append(cum_prob)
+        cum_probs = [0]  # Начинаем с 0
 
-        # Добавляем крайние точки
-        x_points = [min(x_points) - 1] + x_points + [max(x_points) + 1]
-        y_points = [0] + y_points + [1]
+        for w in probabilities:
+            cum_prob += w
+            cum_probs.append(cum_prob)
+
+        print("Накопительные вероятности:", cum_probs)
+
+        # Определяем границы для построения
+        if x_values:
+            min_x = min(x_values)
+            max_x = max(x_values)
+            x_range = max_x - min_x
+
+            # Добавляем точки слева и справа для продолжения линий
+            left_x = min_x - 0.2 * x_range if x_range > 0 else min_x - 1
+            right_x = max_x + 0.1 * x_range if x_range > 0 else max_x + 1
+        else:
+            min_x, max_x = 0, 1
+            left_x, right_x = -0.2, 1.1
 
         # Строим график
         fig, ax = plt.subplots(figsize=(10, 6))
-        ax.step(x_points, y_points, where='post', linewidth=2, color='purple')
+
+        # Рисуем продолжение самой первой линии влево (y=0)
+        ax.hlines(y=0, xmin=left_x, xmax=x_values[0] if x_values else 0,
+                  linewidth=2, color='purple', linestyle='-')
+
+        # Рисуем горизонтальные линии для каждого сегмента
+        # Каждая линия идет от предыдущего x до текущего x
+        for i in range(len(x_values)):
+            if i == 0:
+                # Первая линия: от самого левого x до первого x
+                x_start = x_values[0]
+            else:
+                # Остальные линии: от предыдущего x до текущего x
+                x_start = x_values[i - 1]
+
+            x_end = x_values[i]
+            y_level = cum_probs[i]  # Накопительная вероятность до текущего x
+
+            print(f"Линия {i}: y={y_level}, от x={x_start} до x={x_end}")
+
+            # Рисуем горизонтальную линию
+            ax.hlines(y=y_level,
+                      xmin=x_start,
+                      xmax=x_end,
+                      linewidth=2, color='purple')
+
+            # Добавляем точку разрыва справа (пустой кружок)
+            if i > 0:
+                ax.plot(x_start, y_level, 'ro',
+                        markersize=8, fillstyle='none', markeredgewidth=2)
+
+        # Рисуем последнюю линию (после максимального x)
+        if x_values:
+            last_y = cum_probs[-1]  # Должно быть 1
+            ax.hlines(y=last_y,
+                      xmin=x_values[-1],
+                      xmax=right_x,
+                      linewidth=2, color='purple', linestyle='-')
+
+            ax.plot(x_values[-1], last_y, 'ro',
+                    markersize=8, fillstyle='none', markeredgewidth=2)
+
         ax.set_xlabel('x', fontsize=12)
         ax.set_ylabel('F*(x)', fontsize=12)
-        ax.set_title('Эмпирическая функция распределения F*(x)', fontsize=14, fontweight='bold')
+        ax.set_title('Эмпирическая функция распределения F*(x)',
+                     fontsize=14, fontweight='bold')
         ax.grid(True, alpha=0.3)
         ax.set_ylim(-0.05, 1.05)
 
-        # Добавляем точки разрыва
-        for i in range(1, len(x_points) - 1, 2):
-            ax.plot(x_points[i], y_points[i], 'go', markersize=8)
-            ax.plot(x_points[i], y_points[i + 1], 'ro', markersize=8, fillstyle='none')
+        # Устанавливаем границы по X
+        if x_values:
+            padding = 0.05 * x_range if x_range > 0 else 0.5
+            ax.set_xlim(left_x - 0.00001, right_x + 0.0001)
+        else:
+            ax.set_xlim(-0.5, 1.5)
 
         plt.tight_layout()
 
