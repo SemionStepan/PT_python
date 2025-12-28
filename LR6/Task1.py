@@ -98,6 +98,7 @@ class PearsonChiSquareTest:
             ("1-3: Данные и хар-ки", self.show_basic_stats),
             ("4-5: Оценки параметров", self.show_parameter_estimates),
             ("6: Графики сравнения", self.show_comparison_graphs),
+            ("Полигон группированных частот", self.show_grouped_frequency_polygon),
             ("7: Теоретические вероятности", self.show_theoretical_probabilities),
             ("8: χ² наблюдаемое", self.show_chi2_observed),
             ("9-11: Проверка гипотезы", self.perform_hypothesis_test),
@@ -714,56 +715,117 @@ class PearsonChiSquareTest:
             a_star = np.mean(self.data)
             sigma_star = np.std(self.data, ddof=0)
 
-        # Ширина столбцов для гистограммы
+        # Получаем границы интервалов
         if self.manual_mode:
-            widths = [interval['right'] - interval['left']
-                      for interval in self.manual_intervals]
+            left_bounds = [interval['left'] for interval in self.manual_intervals]
+            right_bounds = [interval['right'] for interval in self.manual_intervals]
         else:
-            widths = [self.interval_bounds[i + 1] - self.interval_bounds[i]
-                      for i in range(self.n_intervals)]
+            left_bounds = self.interval_bounds[:-1]
+            right_bounds = self.interval_bounds[1:]
 
-        bar_widths = [w * 0.8 for w in widths]
+        # 6а) Гистограмма частот (n_i) без промежутков, но с разделением столбцов
+        # Создаем отдельные прямоугольники для каждого интервала
+        colors = plt.cm.Blues(np.linspace(0.3, 0.9, self.n_intervals))
 
-        # 6а) Гистограмма относительных частот с ломаной
-        bars = ax1.bar(self.midpoints, self.interval_rel_freq,
-                       width=bar_widths, alpha=0.5, color='lightblue',
-                       edgecolor='black', label='Гистограмма отн. частот')
-
-        # Ломаная через середины верхних оснований прямоугольников
-        poly_x = []
-        poly_y = []
         for i in range(self.n_intervals):
-            poly_x.append(self.midpoints[i])
-            poly_y.append(self.interval_rel_freq[i])
+            # Определяем границы прямоугольника
+            left = left_bounds[i]
+            right = right_bounds[i]
+            height = self.interval_freq[i]
 
+            # Создаем прямоугольник с черной границей для разделения
+            rect = plt.Rectangle((left, 0), right - left, height,
+                                 facecolor=colors[i], edgecolor='black', linewidth=1.5)
+            ax1.add_patch(rect)
+
+            # Добавляем подписи границ на оси X (только левая граница для чистоты)
+            # if i == 0 or i == self.n_intervals - 1:
+            #     ax1.text(left, -0.02 * max(self.interval_freq), f'{left:.2f}',
+            #              ha='center', fontsize=9, transform=ax1.transData)
+
+        # Добавляем подпись последней правой границы
+        # ax1.text(right_bounds[-1], -0.02 * max(self.interval_freq), f'{right_bounds[-1]:.2f}',
+        #          ha='center', fontsize=9, transform=ax1.transData)
+
+        # Добавляем ломаную с вершинами в точках, являющихся серединами горизонтальных отрезков гистограммы
+        # Середины горизонтальных отрезков: (середина интервала по X, частота n_i по Y)
+        poly_x = self.midpoints  # Середины интервалов
+        poly_y = self.interval_freq  # Частоты
+
+        # Добавляем точки для ломаной
         ax1.plot(poly_x, poly_y, 'ro-', linewidth=2, markersize=8,
                  label='Ломаная через середины')
 
-        ax1.set_xlabel('x', fontsize=12)
-        ax1.set_ylabel('Относительная частота', fontsize=12)
-        ax1.set_title('Эмпирическое распределение', fontsize=14, fontweight='bold')
-        ax1.legend()
-        ax1.grid(True, alpha=0.3)
+        # Подписываем точки ломаной
+        for i in range(self.n_intervals):
+            ax1.text(poly_x[i], poly_y[i], f'({poly_x[i]:.2f}, {poly_y[i]})',
+                     fontsize=9, ha='center', va='bottom')
 
-        # 6б) График плотности нормального распределения
-        x_min = min(self.midpoints) - max(widths)
-        x_max = max(self.midpoints) + max(widths)
+        # Настраиваем оси
+        ax1.set_xlim(left_bounds[0] - (right_bounds[-1] - left_bounds[0]) * 0.02,
+                     right_bounds[-1] + (right_bounds[-1] - left_bounds[0]) * 0.02)
+        ax1.set_ylim(0, max(self.interval_freq) * 1.1)
+
+        ax1.set_xlabel('x (значения)', fontsize=12)
+        ax1.set_ylabel('Частота (n_i)', fontsize=12)
+        ax1.set_title('Гистограмма частот с ломаной', fontsize=14, fontweight='bold')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3, linestyle='--')
+
+        # 6б) Теоретическая и эмпирическая плотности
+        # Вычисляем плотности для каждого интервала: n_i / (n * h_i)
+        if self.manual_mode:
+            # Для ручного режима вычисляем плотности
+            densities = []
+            for i in range(self.n_intervals):
+                interval_width = right_bounds[i] - left_bounds[i]
+                density = self.interval_freq[i] / (n * interval_width)
+                densities.append(density)
+        else:
+            # Для автоматического режима
+            n = len(self.data)
+            densities = []
+            for i in range(self.n_intervals):
+                interval_width = right_bounds[i] - left_bounds[i]
+                density = self.interval_freq[i] / (n * interval_width)
+                densities.append(density)
+
+        # Создаем отдельные прямоугольники для плотностей
+        colors_density = plt.cm.Oranges(np.linspace(0.3, 0.9, self.n_intervals))
+
+        for i in range(self.n_intervals):
+            # Определяем границы прямоугольника
+            left = left_bounds[i]
+            right = right_bounds[i]
+            height = densities[i]
+
+            # Создаем прямоугольник с черной границей для разделения
+            rect = plt.Rectangle((left, 0), right - left, height,
+                                 facecolor=colors_density[i], alpha=0.7,
+                                 edgecolor='black', linewidth=1.5)
+            ax2.add_patch(rect)
+
+        # График теоретической плотности нормального распределения
+        x_min = min(left_bounds) - (max(right_bounds) - min(left_bounds)) * 0.1
+        x_max = max(right_bounds) + (max(right_bounds) - min(left_bounds)) * 0.1
         x_normal = np.linspace(x_min, x_max, 1000)
 
         y_normal = (1 / (sigma_star * np.sqrt(2 * np.pi))) * \
                    np.exp(-0.5 * ((x_normal - a_star) / sigma_star) ** 2)
 
-        ax2.plot(x_normal, y_normal, 'b-', linewidth=2, label=f'N({a_star:.2f}, {sigma_star:.2f}²)')
+        ax2.plot(x_normal, y_normal, 'b-', linewidth=2,
+                 label=f'Теоретическая плотность N({a_star:.2f}, {sigma_star:.2f}²)')
 
-        # Также покажем гистограмму для сравнения
-        ax2.bar(self.midpoints, self.interval_rel_freq, width=bar_widths,
-                alpha=0.3, color='orange', label='Эмпирическое распределение')
+        # Настраиваем оси для второго графика
+        ax2.set_xlim(left_bounds[0] - (right_bounds[-1] - left_bounds[0]) * 0.02,
+                     right_bounds[-1] + (right_bounds[-1] - left_bounds[0]) * 0.02)
+        ax2.set_ylim(0, max(max(densities), max(y_normal)) * 1.1)
 
-        ax2.set_xlabel('x', fontsize=12)
+        ax2.set_xlabel('x (значения)', fontsize=12)
         ax2.set_ylabel('Плотность вероятности', fontsize=12)
         ax2.set_title('Теоретическая и эмпирическая плотности', fontsize=14, fontweight='bold')
         ax2.legend()
-        ax2.grid(True, alpha=0.3)
+        ax2.grid(True, alpha=0.3, linestyle='--')
 
         plt.tight_layout()
 
@@ -778,13 +840,178 @@ class PearsonChiSquareTest:
         text += "=" * 80 + "\n\n"
         text += "6. ГРАФИКИ:\n"
         text += "-" * 60 + "\n"
-        text += "а) Гистограмма относительных частот эмпирического распределения\n"
-        text += "   с ломаной, проходящей через середины верхних оснований\n\n"
-        text += "б) График плотности теоретического нормального распределения\n"
-        text += "   с параметрами, оцененными по выборке:\n"
+        text += "а) Гистограмма частот (n_i) с ломаной:\n"
+        text += "   • Высота столбцов соответствует частотам n_i\n"
+        text += "   • Столбцы слитны друг с другом (нет промежутков)\n"
+        text += "   • Визуальное разделение столбцов - черные границы\n"
+        text += "   • Подписаны крайние границы интервалов\n"
+        text += "   • Красная ломаная проходит через середины горизонтальных отрезков гистограммы\n"
+        text += "   • Вершины ломаной: (x_i, n_i), где x_i - середины интервалов\n\n"
+
+        text += "Координаты вершин ломаной:\n"
+        for i in range(self.n_intervals):
+            text += f"   Точка {i + 1}: (x_{i + 1} = {self.midpoints[i]:.4f}, n_{i + 1} = {self.interval_freq[i]})\n"
+        text += "\n"
+
+        text += "б) Сравнение теоретической и эмпирической плотностей:\n"
+        text += "   • Оранжевые столбцы - эмпирическая плотность\n"
+        text += "   • Синяя гладкая линия - теоретическая нормальная плотность\n"
+        text += "   • Столбцы слитны друг с другом (нет промежутков)\n"
+        text += "   • Визуальное разделение столбцов - черные границы\n\n"
+
+        text += "Параметры теоретического распределения:\n"
         text += f"   a* = {a_star:.6f}, σ* = {sigma_star:.6f}\n\n"
+
         text += "Визуальное сравнение позволяет оценить соответствие\n"
         text += "эмпирического распределения теоретическому нормальному."
+
+        self.display_result(text)
+
+    def show_grouped_frequency_polygon(self):
+        """Полигон группированных частот"""
+        if self.data is None and not self.manual_mode:
+            messagebox.showwarning("Предупреждение", "Сначала загрузите данные")
+            return
+
+        if not self.manual_mode and not self.calculate_intervals():
+            return
+
+        # Очищаем область графиков
+        for widget in self.graph_frame.winfo_children():
+            widget.destroy()
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
+        # Параметры для расчетов
+        if self.manual_mode:
+            n = sum(self.interval_freq)
+        else:
+            n = len(self.data)
+
+        # 1. Полигон частот (n_i)
+        # Для построения полигона используем середины интервалов
+        poly_x = self.midpoints
+        poly_y = self.interval_freq
+
+        # Добавляем крайние точки для замыкания полигона
+        if self.manual_mode:
+            left_bounds = [interval['left'] for interval in self.manual_intervals]
+            right_bounds = [interval['right'] for interval in self.manual_intervals]
+        else:
+            left_bounds = self.interval_bounds[:-1]
+            right_bounds = self.interval_bounds[1:]
+
+        # Вычисляем ширину первого и последнего интервалов
+        first_width = right_bounds[0] - left_bounds[0]
+        last_width = right_bounds[-1] - left_bounds[-1]
+
+        # Создаем расширенные массивы для полигона
+        poly_x_extended = []
+        poly_y_extended = []
+
+        # Добавляем точку слева от первого интервала
+        poly_x_extended.append(poly_x[0] - first_width)
+        poly_y_extended.append(0)
+
+        # Добавляем все середины интервалов
+        for i in range(self.n_intervals):
+            poly_x_extended.append(poly_x[i])
+            poly_y_extended.append(poly_y[i])
+
+        # Добавляем точку справа от последнего интервала
+        poly_x_extended.append(poly_x[-1] + last_width)
+        poly_y_extended.append(0)
+
+        # Строим полигон частот
+        ax1.plot(poly_x_extended, poly_y_extended, 'bo-', linewidth=2, markersize=8,
+                 label='Полигон частот')
+        # ax1.fill_between(poly_x_extended, poly_y_extended, alpha=0.3, color='blue')
+
+        # Добавляем точки и подписи
+        for i in range(self.n_intervals):
+            ax1.plot(poly_x[i], poly_y[i], 'ro', markersize=8)
+            ax1.text(poly_x[i], poly_y[i], f'({poly_x[i]:.2f}, {poly_y[i]})',
+                     fontsize=9, ha='center', va='bottom')
+
+        ax1.set_xlabel('Середины интервалов (x_i)', fontsize=12)
+        ax1.set_ylabel('Частота (n_i)', fontsize=12)
+        ax1.set_title('Полигон группированных частот', fontsize=14, fontweight='bold')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+
+        # 2. Полигон относительных частот (w_i)
+        poly_y_rel = self.interval_rel_freq
+
+        # Создаем расширенные массивы для полигона относительных частот
+        poly_x_extended_rel = []
+        poly_y_extended_rel = []
+
+        # Добавляем точку слева от первого интервала
+        poly_x_extended_rel.append(poly_x[0] - first_width)
+        poly_y_extended_rel.append(0)
+
+        # Добавляем все середины интервалов
+        for i in range(self.n_intervals):
+            poly_x_extended_rel.append(poly_x[i])
+            poly_y_extended_rel.append(poly_y_rel[i])
+
+        # Добавляем точку справа от последнего интервала
+        poly_x_extended_rel.append(poly_x[-1] + last_width)
+        poly_y_extended_rel.append(0)
+
+        # Строим полигон относительных частот
+        ax2.plot(poly_x_extended_rel, poly_y_extended_rel, 'go-', linewidth=2, markersize=8,
+                 label='Полигон отн. частот')
+        # ax2.fill_between(poly_x_extended_rel, poly_y_extended_rel, alpha=0.3, color='green')
+
+        # Добавляем точки и подписи
+        for i in range(self.n_intervals):
+            ax2.plot(poly_x[i], poly_y_rel[i], 'ro', markersize=8)
+            ax2.text(poly_x[i], poly_y_rel[i], f'({poly_x[i]:.2f}, {poly_y_rel[i]:.4f})',
+                     fontsize=9, ha='center', va='bottom')
+
+        ax2.set_xlabel('Середины интервалов (x_i)', fontsize=12)
+        ax2.set_ylabel('Относительная частота (w_i)', fontsize=12)
+        ax2.set_title('Полигон группированных относительных частот', fontsize=14, fontweight='bold')
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+
+        # Встраиваем график
+        canvas = FigureCanvasTkAgg(fig, self.graph_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        # Текстовое описание
+        text = "=" * 80 + "\n"
+        text += "ПОЛИГОН ГРУППИРОВАННЫХ ЧАСТОТ\n"
+        text += "=" * 80 + "\n\n"
+
+        text += "ПОЛИГОН ЧАСТОТ (n_i):\n"
+        text += "-" * 40 + "\n"
+        text += "Полигон - ломаная линия, соединяющая точки (x_i, n_i),\n"
+        text += "где x_i - середины интервалов, n_i - частоты.\n\n"
+
+        text += "Координаты вершин полигона:\n"
+        for i in range(self.n_intervals):
+            text += f"Точка {i + 1}: (x_{i + 1} = {poly_x[i]:.4f}, n_{i + 1} = {poly_y[i]})\n"
+        text += "\n"
+
+        text += "ПОЛИГОН ОТНОСИТЕЛЬНЫХ ЧАСТОТ (w_i):\n"
+        text += "-" * 40 + "\n"
+        text += "Полигон - ломаная линия, соединяющая точки (x_i, w_i),\n"
+        text += "где x_i - середины интервалов, w_i = n_i/n - относительные частоты.\n\n"
+
+        text += "Координаты вершин полигона:\n"
+        for i in range(self.n_intervals):
+            text += f"Точка {i + 1}: (x_{i + 1} = {poly_x[i]:.4f}, w_{i + 1} = {poly_y_rel[i]:.6f})\n"
+        text += "\n"
+
+        text += "Свойства полигонов:\n"
+        text += "1. Площадь под полигоном относительных частот равна 1\n"
+        text += "2. Полигон строится по серединам интервалов\n"
+        text += "3. Для замыкания добавляются крайние точки с нулевыми частотами\n"
 
         self.display_result(text)
 
@@ -1117,6 +1344,7 @@ class PearsonChiSquareTest:
         self.show_basic_stats()
         self.show_parameter_estimates()
         self.show_comparison_graphs()
+        self.show_grouped_frequency_polygon()
         self.show_theoretical_probabilities()
         self.show_chi2_observed()
         self.perform_hypothesis_test()
@@ -1137,6 +1365,8 @@ class PearsonChiSquareTest:
         summary += "Выполнены все 11 пунктов задания:\n"
         for i in range(1, 12):
             summary += f"{i}. ✓\n"
+        summary += "\nДополнительно выполнен анализ:\n"
+        summary += "• Полигон группированных частот ✓\n"
 
         self.text_output.insert(tk.END, summary)
 
